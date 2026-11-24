@@ -71,7 +71,7 @@ sync_checkout() {
     if [ "$current" != "$wanted" ]; then
         echo "in-container: composer update (first run or composer.json changed)..." >&2
         docker exec -w "$DIR" "$NAME" composer config -g repositories.magento-mirror composer "$MIRROR"
-        docker exec -w "$DIR" "$NAME" composer update --no-interaction --no-progress --prefer-dist -q
+        docker exec -w "$DIR" "$NAME" composer update --no-interaction --no-progress --prefer-dist --ignore-platform-req=php+ -q
         docker exec "$NAME" sh -c "echo $wanted > $DIR/vendor/.composer-json-hash"
     fi
 }

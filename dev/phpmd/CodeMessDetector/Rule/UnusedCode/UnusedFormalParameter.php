@@ -7,33 +7,196 @@ declare(strict_types=1);
 
 namespace Magento\CodeMessDetector\Rule\UnusedCode;
 
+use PDepend\Source\AST\ASTFormalParameter;
 use PHPMD\AbstractNode;
+use PHPMD\Node\ASTNode;
 use PHPMD\Node\ClassNode;
 use PHPMD\Node\MethodNode;
-use PHPMD\Rule\UnusedFormalParameter as PhpmdUnusedFormalParameter;
+use PHPMD\Rule\AbstractLocalVariable;
+use PHPMD\Rule\FunctionAware;
+use PHPMD\Rule\MethodAware;
 
-class UnusedFormalParameter extends PhpmdUnusedFormalParameter
+/**
+ * UnusedFormalParameter rule compatible with both PHPMD 2.x and PHPMD 3.x (where PHPMD\Rule\UnusedFormalParameter is final).
+ */
+class UnusedFormalParameter extends AbstractLocalVariable implements FunctionAware, MethodAware
 {
     /**
-     * This method collects all local variables in the body of the currently
-     * analyzed method or function and removes those parameters that are
-     * referenced by one of the collected variables.
+     * Collected AST nodes.
+     *
+     * @var array<string, ASTNode>
+     */
+    protected $nodes = [];
+
+    /**
+     * Check that all parameters of a given function or method are used at least once.
      *
      * @param AbstractNode $node
      * @return void
      */
-    protected function removeUsedParameters(AbstractNode $node)
+    public function apply(AbstractNode $node): void
     {
-        parent::removeUsedParameters($node);
+        if ($this->isAbstractMethod($node)
+            || $this->isMagicMethod($node)
+            || $this->isInheritedSignature($node)
+            || $this->isNotDeclaration($node)
+        ) {
+            return;
+        }
+
+        $this->nodes = [];
+        $this->collectParameters($node);
+        $this->removeUsedParameters($node);
+
+        foreach ($this->nodes as $unusedNode) {
+            $this->addViolation($unusedNode, [$unusedNode->getImage()]);
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return bool
+     */
+    protected function isAbstractMethod(AbstractNode $node): bool
+    {
+        return $node instanceof MethodNode && $node->isAbstract();
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return bool
+     */
+    protected function isInheritedSignature(AbstractNode $node): bool
+    {
+        if ($node instanceof MethodNode) {
+            $comment = $node->getDocComment();
+
+            return (bool) ($comment && preg_match('/@inheritdoc/i', $comment));
+        }
+
+        return false;
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return bool
+     */
+    protected function isMagicMethod(AbstractNode $node): bool
+    {
+        if (!($node instanceof MethodNode)) {
+            return false;
+        }
+
+        return preg_match('/__(?:call|callStatic|get|set|isset|unset|set_state)/i', $node->getName()) === 1;
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return bool
+     */
+    protected function isNotDeclaration(AbstractNode $node): bool
+    {
+        return $node instanceof MethodNode && !$node->isDeclaration();
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    protected function collectParameters(AbstractNode $node): void
+    {
+        foreach ($node->findChildrenOfType('FormalParameters') as $parameters) {
+            foreach ($parameters->findChildrenOfType('VariableDeclarator') as $declarator) {
+                $this->nodes[$declarator->getImage()] = $declarator;
+            }
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    protected function removeUsedParameters(AbstractNode $node): void
+    {
+        $this->removeRegularVariables($node);
+        $this->removeCompoundVariables($node);
+        $this->removeVariablesUsedByFuncGetArgs($node);
+        $this->removePropertyPromotionVariables($node);
         $this->removeVariablesUsedInPlugins($node);
     }
 
     /**
-     * Remove required method variables used in plugins from given node
-     *
      * @param AbstractNode $node
+     * @return void
      */
-    private function removeVariablesUsedInPlugins(AbstractNode $node)
+    protected function removeRegularVariables(AbstractNode $node): void
+    {
+        foreach ($node->findChildrenOfTypeVariable() as $variable) {
+            if ($this->isRegularVariable($variable)) {
+                unset($this->nodes[$variable->getImage()]);
+            }
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    protected function removeCompoundVariables(AbstractNode $node): void
+    {
+        foreach ($node->findChildrenOfType('CompoundVariable') as $compoundVariable) {
+            $variablePrefix = $compoundVariable->getImage();
+            foreach ($compoundVariable->findChildrenOfType('Expression') as $child) {
+                $variableImage = $variablePrefix . $child->getImage();
+                unset($this->nodes[$variableImage]);
+            }
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    protected function removeVariablesUsedByFuncGetArgs(AbstractNode $node): void
+    {
+        foreach ($node->findChildrenOfType('FunctionPostfix') as $functionCall) {
+            if ($this->isFunctionNameEqual($functionCall, 'func_get_args')) {
+                $this->nodes = [];
+            }
+            if ($this->isFunctionNameEndingWith($functionCall, 'compact')) {
+                foreach ($functionCall->findChildrenOfType('Literal') as $literal) {
+                    unset($this->nodes['$' . trim($literal->getImage(), '"\'')]);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    protected function removePropertyPromotionVariables(AbstractNode $node): void
+    {
+        if (!$node instanceof MethodNode || $node->getImage() !== '__construct') {
+            return;
+        }
+
+        /** @var ASTFormalParameter&ASTNode $parameter */
+        foreach ($node->findChildrenOfType('FormalParameter') as $parameter) {
+            if ($parameter->isPromoted()) {
+                $variable = $parameter->getFirstChildOfType('VariableDeclarator');
+                if ($variable !== null) {
+                    unset($this->nodes[$variable->getImage()]);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param AbstractNode $node
+     * @return void
+     */
+    private function removeVariablesUsedInPlugins(AbstractNode $node): void
     {
         if (!$node instanceof MethodNode) {
             return;
@@ -41,63 +204,19 @@ class UnusedFormalParameter extends PhpmdUnusedFormalParameter
 
         /** @var ClassNode $classNode */
         $classNode = $node->getParentType();
-        if (!$this->isPluginClass($classNode->getNamespaceName())) {
+        if (stripos($classNode->getNamespaceName(), 'plugin') === false) {
             return;
         }
 
-        /**
-         * Around and After plugins has 2 required params $subject and $proceed or $result
-         * that should be ignored
-         */
         foreach (['around', 'after'] as $pluginMethodPrefix) {
-            if ($this->isFunctionNameStartingWith($node, $pluginMethodPrefix)) {
-                $this->removeVariablesByCount(2);
-
+            if (strpos($node->getImage(), $pluginMethodPrefix) === 0) {
+                array_splice($this->nodes, 0, 2);
                 break;
             }
         }
 
-        /**
-         * Before plugins has 1 required params $subject
-         * that should be ignored
-         */
-        if ($this->isFunctionNameStartingWith($node, 'before')) {
-            $this->removeVariablesByCount(1);
+        if (strpos($node->getImage(), 'before') === 0) {
+            array_splice($this->nodes, 0, 1);
         }
-    }
-
-    /**
-     * Check if the first part of function fully qualified name is equal to $name
-     *
-     * Methods getImage and getName are equal. getImage used prior to usage in phpmd source
-     *
-     * @param MethodNode $node
-     * @param string $name
-     * @return boolean
-     */
-    private function isFunctionNameStartingWith(MethodNode $node, string $name): bool
-    {
-        return (0 === strpos($node->getImage(), $name));
-    }
-
-    /**
-     * Remove first $countOfRemovingVariables from given node
-     *
-     * @param int $countOfRemovingVariables
-     */
-    private function removeVariablesByCount(int $countOfRemovingVariables)
-    {
-        array_splice($this->nodes, 0, $countOfRemovingVariables);
-    }
-
-    /**
-     * Check if namespace contain "Plugin". Case-sensitive ignored
-     *
-     * @param string $class
-     * @return bool
-     */
-    private function isPluginClass(string $class): bool
-    {
-        return (stripos($class, 'plugin') !== false);
     }
 }

@@ -21,6 +21,7 @@ Declared for Magento 2.4.7+ (`magento/framework ^103.0.7`) and PHP 8.2 – 8.3.
 | `etc/adminhtml/system.xml` | "Include store views of other websites" (website scope, default No) |
 | `Test/Unit` | PHPUnit, mirrors the structure (`Foo/Bar.php` → `Test/Unit/Foo/BarTest.php`) |
 | `e2e/` | Playwright tests and the scenario (`e2e/scenario/`) they run against |
+| `docs/QA.md` | Requirement-to-test traceability matrix and manual/automated QA runbook |
 | `dev/ci`, `dev/phpmd` | CI checks (PHP scripts) and the vendored Magento PHPMD rule set |
 
 ## Rules of the calculation

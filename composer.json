@@ -15,7 +15,7 @@
     "authors": [
         {
             "name": "Roni Clei Santos",
-            "homepage": "https://github.com/roni-clei-santos",
+            "homepage": "https://ronicleisantos.com.br",
             "role": "Developer"
         }
     ],
@@ -24,7 +24,7 @@
         "source": "https://github.com/roni-clei-santos/Roni_CmsHreflang"
     },
     "require": {
-        "php": "~8.2.0||~8.3.0",
+        "php": "~8.2.0||~8.3.0||~8.4.0",
         "magento/framework": "^103.0.7",
         "magento/module-backend": "^102.0.7",
         "magento/module-cms": "^104.0.7",
@@ -100,6 +100,7 @@
             "@check-scope",
             "@coverage"
         ],
-        "phpcpd": "bash dev/ci/phpcpd.sh Api Block Model ViewModel"
+        "phpcpd": "bash dev/ci/phpcpd.sh Api Block Model ViewModel",
+        "package-marketplace": "@php dev/ci/package-marketplace.php"
     }
 }

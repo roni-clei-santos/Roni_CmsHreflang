@@ -7,11 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-Development tooling only; nothing changes in the installed module.
+### Added
+
+- PHP 8.4 compatibility (`~8.2.0||~8.3.0||~8.4.0`) in `composer.json` and CI matrix for Magento 2.4.8+.
+- Adobe Commerce Marketplace package builder and verifier (`dev/ci/package-marketplace.php`, `composer package-marketplace`).
+- Requirement-to-test traceability matrix and QA runbook (`docs/QA.md`).
 
 ### Changed
 
 - CI only: the workflow uses `actions/checkout@v5`, which runs on Node 24, instead of the v4 version GitHub flags as Node 20 (deprecated).
+- `phpcs.xml.dist` runs the unmodified `Magento2` standard across `.php`, `.phtml` and `.xml` files with zero rule exclusions.
+- Vendored `UnusedFormalParameter` PHPMD rule extends `AbstractLocalVariable` directly for compatibility with both PHPMD 2.x and 3.x (`bin/magento setup:di:compile` on Magento 2.4.9+).
 
 ### Fixed
 

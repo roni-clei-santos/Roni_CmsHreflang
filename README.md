@@ -38,9 +38,9 @@ language-region (`pt-BR`, `es-ES`...) read from the locale of the store view, pl
 
 | | |
 |---|---|
-| Declared | Magento Open Source / Adobe Commerce **2.4.7+** (`magento/framework` `^103.0.7`), PHP **8.2 – 8.3** |
+| Declared | Magento Open Source / Adobe Commerce **2.4.7+** (`magento/framework` `^103.0.7`), PHP **8.2 – 8.4** |
 | Tested end-to-end | Magento Open Source **2.4.8-p4**, PHP 8.3, MariaDB 10.6, OpenSearch 2.12, Luma theme with the sample data, two websites and six store views, with "Add Store Code to Urls" on and off |
-| CI | phpcs (Magento2 standard), phpmd, phpcpd, phpstan level 9 and PHPUnit on PHP 8.2 and 8.3 |
+| CI | phpcs (Magento2 standard), phpmd, phpcpd, phpstan level 9 and PHPUnit on PHP 8.2, 8.3 and 8.4 |
 
 The end-to-end tests (Playwright, in `e2e/`) were run against the Magento 2.4.8-p4 store above.
 
